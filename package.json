@@ -1,0 +1,56 @@
+{
+    "name": "@taraxvoid/voidlink",
+    "version": "0.0.0",
+    "description": "Short links on Cloudflare Workers, with links kept as reviewed config and applied by CI.",
+    "type": "module",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/taraxvoid/voidlink.git"
+    },
+    "homepage": "https://github.com/taraxvoid/voidlink#readme",
+    "bugs": {
+        "url": "https://github.com/taraxvoid/voidlink/issues"
+    },
+    "keywords": [
+        "link-shortener",
+        "cloudflare-workers",
+        "d1",
+        "short-links"
+    ],
+    "publishConfig": {
+        "access": "public",
+        "provenance": true
+    },
+    "engines": {
+        "bun": ">=1.4.0"
+    },
+    "bin": {
+        "voidlink": "src/cli.ts"
+    },
+    "exports": {
+        ".": "./src/index.ts",
+        "./package.json": "./package.json"
+    },
+    "files": [
+        "src",
+        "README.md",
+        "LICENSE"
+    ],
+    "scripts": {
+        "prepare": "lefthook install || echo 'lefthook not installed (run mise install); git hooks skipped'",
+        "lint": "biome check .",
+        "check": "tsc --noEmit",
+        "test": "bun test",
+        "check:licenses": "check-licenses",
+        "test:push": "bun run lint && bun run check && bun test"
+    },
+    "devDependencies": {
+        "@biomejs/biome": "2.6.4",
+        "@cloudflare/workers-types": "^5.20261006.1",
+        "@socketsecurity/bun-security-scanner": "^1.1.3",
+        "@taraxvoid/voidflow": "1.0.0-next.4",
+        "@types/bun": "1.4.4",
+        "typescript": "7.0.2"
+    }
+}

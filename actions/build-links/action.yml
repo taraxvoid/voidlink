@@ -1,0 +1,89 @@
+name: voidlink build-links
+description: >
+  Check out a private redirects file (your infra repo) with a read-only GitHub
+  App token, then write the site's checked links for the Worker to bundle.
+  Run it after `bun install` (it uses the voidlink installed in the site) and
+  before the deploy. Logs counts only, never destinations.
+
+inputs:
+  site:
+    description: The site's voidlink config, e.g. voidlink.config.ts.
+    default: voidlink.config.ts
+  out:
+    description: Where to write the links (what the Worker imports; gitignore it).
+    default: links.gen.json
+  redirects-repo:
+    description: owner/name of the repo holding the redirects file.
+    required: true
+  redirects-path:
+    description: Path of the redirects file in that repo.
+    default: redirects.ts
+  redirects-ref:
+    description: Branch, tag or SHA of the redirects repo to read. Default its default branch.
+    default: ''
+  app-client-id:
+    description: Client ID of a GitHub App installed on the redirects repo (contents read).
+    required: true
+  app-private-key:
+    description: That App's private key.
+    required: true
+  working-directory:
+    description: The site's directory.
+    default: '.'
+
+runs:
+  using: composite
+  steps:
+    - name: Split the redirects repo
+      id: repo
+      shell: bash
+      env:
+        REPO: ${{ inputs.redirects-repo }}
+      run: |
+        set -euo pipefail
+        if [[ ! "$REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then
+          echo "::error::redirects-repo must be owner/name, got '$REPO'" >&2
+          exit 1
+        fi
+        echo "owner=${REPO%%/*}" >> "$GITHUB_OUTPUT"
+        echo "name=${REPO#*/}" >> "$GITHUB_OUTPUT"
+
+    # Read-only and limited to the one repo, so a site's deploy can read its
+    # links and nothing else of infra's.
+    - name: Token for the redirects repo
+      id: token
+      uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+      with:
+        client-id: ${{ inputs.app-client-id }}
+        private-key: ${{ inputs.app-private-key }}
+        owner: ${{ steps.repo.outputs.owner }}
+        repositories: ${{ steps.repo.outputs.name }}
+        permission-contents: read
+
+    - name: Check out the redirects file
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        repository: ${{ inputs.redirects-repo }}
+        ref: ${{ inputs.redirects-ref }}
+        token: ${{ steps.token.outputs.token }}
+        path: .voidlink-redirects
+        sparse-checkout: ${{ inputs.redirects-path }}
+        sparse-checkout-cone-mode: false
+        persist-credentials: false
+
+    - name: Build links
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        SITE: ${{ inputs.site }}
+        OUT: ${{ inputs.out }}
+        REDIRECTS: ${{ github.workspace }}/.voidlink-redirects/${{ inputs.redirects-path }}
+      run: |
+        set -euo pipefail
+        bun x voidlink build --redirects "$REDIRECTS" --site "$SITE" --out "$OUT"
+
+    # The checkout holds every site's links; only this site's go further.
+    - name: Remove the redirects checkout
+      if: always()
+      shell: bash
+      run: rm -rf "$GITHUB_WORKSPACE/.voidlink-redirects"

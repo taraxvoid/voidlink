@@ -1,0 +1,14 @@
+// Written by voidflow v1.0.0-next.4: https://www.npmjs.com/package/@taraxvoid/voidflow
+// Set up a repo the same way: npx @taraxvoid/voidflow init --kind tool
+{
+    "compilerOptions": {
+        "target": "ESNext",
+        "module": "Preserve",
+        "moduleResolution": "bundler",
+        "strict": true,
+        "skipLibCheck": true,
+        "noEmit": true,
+        "types": ["bun", "@cloudflare/workers-types"],
+        "noUncheckedIndexedAccess": true
+    }
+}

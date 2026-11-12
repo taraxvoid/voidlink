@@ -1,0 +1,5 @@
+# Written by voidflow v1.0.0-next.4: https://www.npmjs.com/package/@taraxvoid/voidflow
+# Set up a repo the same way: npx @taraxvoid/voidflow init --kind tool
+node_modules/
+dist/
+.env*

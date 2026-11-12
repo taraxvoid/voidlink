@@ -1,0 +1,41 @@
+name: Release
+
+# release-please on main, then an attested npm publish that waits for 2FA
+# approval (`npm stage approve`). The steps are voidflow's tool-release.yml.
+# npm trusted publishing for @taraxvoid/voidlink must name THIS file
+# (release.yml) and the `npm` environment.
+#
+# The pin is taraxvoid/voidflow#359's commit until that PR ships in a release;
+# move it to the release tag's SHA then (Renovate keeps it current after).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to publish to npm (e.g. v0.1.0)
+        required: true
+        type: string
+      dry-run:
+        description: Run the publish steps with --dry-run (nothing is published)
+        required: false
+        default: false
+        type: boolean
+
+permissions: {}
+
+jobs:
+  release:
+    uses: taraxvoid/voidflow/.github/workflows/tool-release.yml@06ebefb087ea805903ede1fbd02406dd7de4016d # feat(ci): tool-release (voidflow#359)
+    permissions:
+      contents: write
+      pull-requests: write
+      id-token: write
+      attestations: write
+    with:
+      release-bot-client-id: ${{ vars.RELEASE_BOT_CLIENT_ID }}
+      tag: ${{ inputs.tag }}
+      dry-run: ${{ inputs.dry-run == true }}
+    secrets:
+      release-bot-private-key: ${{ secrets.RELEASE_BOT_APP_PRIVATE_KEY }}

@@ -1,0 +1,28 @@
+# Written by voidflow v1.0.0-next.4: https://www.npmjs.com/package/@taraxvoid/voidflow
+# Set up a repo the same way: npx @taraxvoid/voidflow init --kind tool
+name: CI
+on:
+    pull_request:
+        types: [opened, synchronize, reopened, ready_for_review]
+    push:
+        branches: [main]
+    # Add `merge_group:` here if you use a merge queue.
+    workflow_dispatch:
+
+permissions:
+    contents: read
+    pull-requests: read
+
+jobs:
+    validate:
+        uses: taraxvoid/voidflow/.github/workflows/tool-ci.yml@2a0d7726b9dd3446a831a04dbb1d0f879b22d2b5 # v1.0.0-next.4
+
+# Uncomment to upload gitleaks/zizmor results to code scanning (public repos, or private with GitHub Code Security).
+#   sarif:
+#     needs: validate
+#     if: ${{ !cancelled() && needs.validate.result != 'skipped' }}
+#     permissions:
+#       contents: read
+#       actions: read
+#       security-events: write
+#     uses: taraxvoid/voidflow/.github/workflows/upload-sarif.yml@2a0d7726b9dd3446a831a04dbb1d0f879b22d2b5 # v1.0.0-next.4

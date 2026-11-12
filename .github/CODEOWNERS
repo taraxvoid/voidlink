@@ -1,0 +1,35 @@
+# Written by voidflow v1.0.0-next.4: https://www.npmjs.com/package/@taraxvoid/voidflow
+# Set up a repo the same way: npx @taraxvoid/voidflow init --kind tool
+# Paths a misbehaving bot or a malicious pull request would edit to change how
+# the repo, CI or an agent behaves. Require review from Code Owners (the
+# branch ruleset's require_code_owner_review) makes a change here need an
+# approval from the owner below, who must not be the account the bot pushes as.
+# Last match wins; add narrower rules below to hand a path to someone else.
+
+# CI, workflows, actions.lock and this file
+/.github/ @taraxvoid
+
+# Agent and editor directives
+/CLAUDE.md @taraxvoid
+/AGENTS.md @taraxvoid
+/GEMINI.md @taraxvoid
+/.claude/ @taraxvoid
+/.cursor/ @taraxvoid
+/.cursorrules @taraxvoid
+/.mcp.json @taraxvoid
+
+# Tooling and hooks
+/renovate.json @taraxvoid
+/lefthook.yml @taraxvoid
+/mise.toml @taraxvoid
+/biome.json @taraxvoid
+/bunfig.toml @taraxvoid
+
+# Scripts, dependencies and lockfiles
+/package.json @taraxvoid
+/bun.lock @taraxvoid
+/package-lock.json @taraxvoid
+/pnpm-lock.yaml @taraxvoid
+/yarn.lock @taraxvoid
+
+/SECURITY.md @taraxvoid

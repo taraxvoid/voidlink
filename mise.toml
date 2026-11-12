@@ -1,0 +1,7 @@
+# Written by voidflow v1.0.0-next.4: https://www.npmjs.com/package/@taraxvoid/voidflow
+# Set up a repo the same way: npx @taraxvoid/voidflow init --kind tool
+[tools]
+lefthook = "2.2.2"
+gitleaks = "8.30.1"
+jactionlint = "2.3.0"
+bun = "1.4.4"
