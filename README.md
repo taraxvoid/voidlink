@@ -88,6 +88,9 @@ import site from '../voidlink.config'
 export default createWorker({ site, links })
 ```
 
+- voidlink ships TypeScript source, and it uses the Workers types. Your
+  `tsconfig` (and any second one, such as `scripts/`) needs
+  `@cloudflare/workers-types` in `types`.
 - `links.gen.json` is generated. Gitignore it, and run
   `voidlink build --empty --site voidlink.config.ts --out links.gen.json`
   for local dev and tests.
