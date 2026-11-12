@@ -78,6 +78,21 @@ describe('build', () => {
             ]),
         ).rejects.toThrow('no "nobody.example" entry')
     })
+    test("refuses a site entry with no links, so a deploy can't wipe them", async () => {
+        const redirects = join(tmp(), 'r.ts')
+        await Bun.write(redirects, "export default { 'short.example': {} }")
+        await expect(
+            cli([
+                'build',
+                '--redirects',
+                redirects,
+                '--site',
+                fx('site-ok.ts'),
+                '--out',
+                join(tmp(), 'x.json'),
+            ]),
+        ).rejects.toThrow('no links for "short.example"')
+    })
     test('--empty writes no links, for local dev without infra', async () => {
         const out = join(tmp(), 'links.json')
         const res = await cli([

@@ -16,11 +16,11 @@ your own repos.
 
 ## How it fits together
 
-| Where | What | Example |
-| --- | --- | --- |
-| voidlink (this repo, on npm) | Worker engine, the `voidlink` CLI, the `build-links` action | |
-| The site's repo | `voidlink.config.ts`, `wrangler.jsonc`, `src/index.ts`, the deploy | taraxvoid/txv.sh |
-| A private infra repo | `redirects.ts`, with links for every site you run | taraxvoid/infra |
+| Where                        | What                                                               | Example          |
+| ---------------------------- | ------------------------------------------------------------------ | ---------------- |
+| voidlink (this repo, on npm) | Worker engine, the `voidlink` CLI, the `build-links` action        |                  |
+| The site's repo              | `voidlink.config.ts`, `wrangler.jsonc`, `src/index.ts`, the deploy | taraxvoid/txv.sh |
+| A private infra repo         | `redirects.ts`, with links for every site you run                  | taraxvoid/infra  |
 
 ```
 infra PR ──▶ voidlink plan (job summary)
@@ -101,12 +101,12 @@ export default createWorker({ site, links })
 
 ### Routes
 
-| Path | What |
-| --- | --- |
-| `/` | Browsers get the public links as a page. `curl` gets them as `#` comments, so `curl … \| sh` does nothing |
-| `/<slug>` | 302 to the link, with utm tags added where they apply |
-| `/_health` | `{ "ok": true }` when D1 answers, or when there is no D1 |
-| anything else | 404: a page for browsers, a body that fails if piped to `sh` for everything else |
+| Path          | What                                                                                                      |
+| ------------- | --------------------------------------------------------------------------------------------------------- |
+| `/`           | Browsers get the public links as a page. `curl` gets them as `#` comments, so `curl … \| sh` does nothing |
+| `/<slug>`     | 302 to the link, with utm tags added where they apply                                                     |
+| `/_health`    | `{ "ok": true }` when D1 answers, or when there is no D1                                                  |
+| anything else | 404: a page for browsers, a body that fails if piped to `sh` for everything else                          |
 
 ### Click counts (D1)
 
@@ -160,25 +160,25 @@ never destinations, and deletes the checkout afterwards.
 
 ```yaml
 on:
-  push:
-    branches: [main]
-  workflow_dispatch: # run by the infra repo after a links change
+    push:
+        branches: [main]
+    workflow_dispatch: # run by the infra repo after a links change
 jobs:
-  deploy:
-    environment: prod
-    steps:
-      - uses: actions/checkout@<sha>
-        with: { persist-credentials: false }
-      - run: bun install --frozen-lockfile
-      - uses: taraxvoid/voidlink/actions/build-links@<sha> # vX.Y.Z
-        with:
-          redirects-repo: example/infra
-          app-client-id: ${{ vars.LINKS_BOT_CLIENT_ID }}
-          app-private-key: ${{ secrets.LINKS_BOT_PRIVATE_KEY }}
-      - uses: taraxvoid/voidflow/actions/cloudflare-deploy@<sha> # vX.Y.Z
-        with:
-          env: prod
-          cloudflare-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    deploy:
+        environment: prod
+        steps:
+            - uses: actions/checkout@<sha>
+              with: { persist-credentials: false }
+            - run: bun install --frozen-lockfile
+            - uses: taraxvoid/voidlink/actions/build-links@<sha> # vX.Y.Z
+              with:
+                  redirects-repo: example/infra
+                  app-client-id: ${{ vars.LINKS_BOT_CLIENT_ID }}
+                  app-private-key: ${{ secrets.LINKS_BOT_PRIVATE_KEY }}
+            - uses: taraxvoid/voidflow/actions/cloudflare-deploy@<sha> # vX.Y.Z
+              with:
+                  env: prod
+                  cloudflare-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 ```
 
 There's no `migrate-d1` step. In voidflow's `cf-tokens`, the site's env
@@ -212,12 +212,12 @@ voidlink check --redirects <file> --host <host> [--origin <url>]
 voidlink ls    --redirects <file> [--host <host>]
 ```
 
-| Command | What it does |
-| --- | --- |
-| `build` | Checks one site's links (including its `reserved` slugs) and writes them out |
-| `plan` | Checks every site in the file and prints what changed against `--base`, as Markdown. `--summary` also adds it to the GitHub job summary |
-| `check` | Sends a `HEAD` to every link on the live site, as a bot so nothing is counted, and exits 1 if any redirect doesn't match the file |
-| `ls` | Prints the file's links |
+| Command | What it does                                                                                                                            |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `build` | Checks one site's links (including its `reserved` slugs) and writes them out                                                            |
+| `plan`  | Checks every site in the file and prints what changed against `--base`, as Markdown. `--summary` also adds it to the GitHub job summary |
+| `check` | Sends a `HEAD` to every link on the live site, as a bot so nothing is counted, and exits 1 if any redirect doesn't match the file       |
+| `ls`    | Prints the file's links                                                                                                                 |
 
 Exit codes: 0 for success, 1 when `check` finds drift, 2 for a bad file or
 bad arguments.

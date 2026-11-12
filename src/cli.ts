@@ -73,6 +73,13 @@ export async function run(argv: string[], out: Out): Promise<number> {
                     )
                 }
                 table = buildLinks(inputs, site)
+                // A deploy with no links takes every live one down: only on
+                // purpose, with --empty.
+                if (!Object.keys(table).length) {
+                    throw new Error(
+                        `${flags.redirects} has no links for "${site.host}" (pass --empty to deploy none)`,
+                    )
+                }
             }
             const file = str(flags, 'out')
             mkdirSync(dirname(resolve(file)), { recursive: true })
