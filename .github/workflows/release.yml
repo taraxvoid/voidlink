@@ -5,8 +5,9 @@ name: Release
 # npm trusted publishing for @taraxvoid/voidlink must name THIS file
 # (release.yml) and the `npm` environment.
 #
-# The pin is taraxvoid/voidflow#359's commit until that PR ships in a release;
-# move it to the release tag's SHA then (Renovate keeps it current after).
+# The pin is the voidflow `next` commit that merged taraxvoid/voidflow#359.
+# Move it to the first release tag that includes it (Renovate keeps it
+# current after).
 
 on:
     push:
@@ -27,7 +28,7 @@ permissions: {}
 
 jobs:
     release:
-        uses: taraxvoid/voidflow/.github/workflows/tool-release.yml@06ebefb087ea805903ede1fbd02406dd7de4016d # feat(ci): tool-release (voidflow#359)
+        uses: taraxvoid/voidflow/.github/workflows/tool-release.yml@be2660989517ab47927f66e26f5887feb78fc848 # voidflow next, after #359
         permissions:
             contents: write
             pull-requests: write
