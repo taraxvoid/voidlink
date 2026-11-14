@@ -1,6 +1,6 @@
 name: voidlink build-links
 description: >
-    Check out a private redirects file (your infra repo) with a read-only GitHub
+    Check out a private redirects file (your private links repo) with a read-only GitHub
     App token, then write the site's checked links for the Worker to bundle.
     Run it after `bun install` (it uses the voidlink installed in the site) and
     before the deploy. Logs counts only, never destinations.
@@ -49,7 +49,7 @@ runs:
               echo "name=${REPO#*/}" >> "$GITHUB_OUTPUT"
 
         # Read-only and limited to the one repo, so a site's deploy can read its
-        # links and nothing else of infra's.
+        # links and nothing else of the links repo's.
         - name: Token for the redirects repo
           id: token
           uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0

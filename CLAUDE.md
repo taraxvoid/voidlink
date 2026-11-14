@@ -7,7 +7,7 @@ txv.sh and rvnflt.com. See README.md for the model.
 
 - **Public repo, no content.** No links, hosts of real deployments in code
   paths, account ids or secrets. Those live in each site's repo and in the
-  private infra repos. Test fixtures use `*.example`.
+  private links repos. Test fixtures use `*.example`.
 - **CI never writes D1.** Links are bundled at build time; click tables are
   created by the Worker through its binding (`src/clicks.ts`). A REST D1
   grant is account-wide, so nothing here may need one. New schema: append a
