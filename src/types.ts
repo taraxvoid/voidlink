@@ -14,7 +14,7 @@ export type LinkInput =
       }
 
 /**
- * A redirects file (`redirects.ts` in your infra repo): links per site, keyed
+ * A redirects file (`redirects.ts` in your private links repo): links per site, keyed
  * by the site's host, then by slug.
  *
  *   import type { Redirects } from '@taraxvoid/voidlink'

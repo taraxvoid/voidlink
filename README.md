@@ -20,13 +20,13 @@ your own repos.
 | ---------------------------- | ------------------------------------------------------------------ | ---------------- |
 | voidlink (this repo, on npm) | Worker engine, the `voidlink` CLI, the `build-links` action        |                  |
 | The site's repo              | `voidlink.config.ts`, `wrangler.jsonc`, `src/index.ts`, the deploy | taraxvoid/txv.sh |
-| A private infra repo         | `redirects.ts`, with links for every site you run                  | taraxvoid/infra  |
+| A private links repo         | `redirects.ts`, with links for every site you run                  | taraxvoid/links  |
 
 ```
-infra PR ──▶ voidlink plan (job summary)
+links PR ──▶ voidlink plan (job summary)
    │ merge
    ▼
-infra push ──▶ workflow_dispatch the site's deploy
+links push ──▶ workflow_dispatch the site's deploy
                   │ build-links: read redirects.ts (read-only App token)
                   │ voidlink build ──▶ links.gen.json
                   ▼
@@ -35,7 +35,7 @@ infra push ──▶ workflow_dispatch the site's deploy
 
 ## Links: `redirects.ts`
 
-This file goes in your infra repo, keyed by site host and then by slug:
+This file goes in a private links repo, keyed by site host and then by slug:
 
 ```ts
 import type { Redirects } from '@taraxvoid/voidlink'
@@ -165,7 +165,7 @@ never destinations, and deletes the checkout afterwards.
 on:
     push:
         branches: [main]
-    workflow_dispatch: # run by the infra repo after a links change
+    workflow_dispatch: # run by the links repo after a links change
 jobs:
     deploy:
         environment: prod
@@ -175,7 +175,7 @@ jobs:
             - run: bun install --frozen-lockfile
             - uses: taraxvoid/voidlink/actions/build-links@<sha> # vX.Y.Z
               with:
-                  redirects-repo: example/infra
+                  redirects-repo: example/links
                   app-client-id: ${{ vars.LINKS_BOT_CLIENT_ID }}
                   app-private-key: ${{ secrets.LINKS_BOT_PRIVATE_KEY }}
             - uses: taraxvoid/voidflow/actions/cloudflare-deploy@<sha> # vX.Y.Z
@@ -187,15 +187,15 @@ jobs:
 There's no `migrate-d1` step. In voidflow's `cf-tokens`, the site's env
 doesn't need `d1: true`.
 
-### The infra repo: plan on PRs, redeploy on merge
+### The links repo: plan on PRs, redeploy on merge
 
 ```yaml
-# in the infra repo
+# in the links repo
 - run: git show "origin/${BASE_REF}:redirects.ts" > "$RUNNER_TEMP/base.ts" || echo 'export default {}' > "$RUNNER_TEMP/base.ts"
 - run: bunx @taraxvoid/voidlink@<version> plan --redirects redirects.ts --base "$RUNNER_TEMP/base.ts" --summary
 ```
 
-After a merge, infra starts each site's deploy with `workflow_dispatch`. The
+After a merge, the links repo starts each site's deploy with `workflow_dispatch`. The
 App token for that has only Actions write on the site's repo, and no access
 to its contents. `repository_dispatch` would need Contents write, which is
 much broader. Check a live site against the
