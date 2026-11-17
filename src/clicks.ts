@@ -16,6 +16,14 @@ const SCHEMA = [
         key TEXT PRIMARY KEY NOT NULL,
         value TEXT NOT NULL
     )`,
+    // Each site's link set, as `voidlink apply` last sent it (src/store.ts).
+    `CREATE TABLE IF NOT EXISTS voidlink_links (
+        host TEXT PRIMARY KEY NOT NULL,
+        version INTEGER NOT NULL,
+        sha TEXT NOT NULL,
+        links TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )`,
 ]
 
 /**
