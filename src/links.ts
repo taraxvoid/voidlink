@@ -3,7 +3,7 @@ import type { Link, LinkInput, LinkTable, Site } from './types'
 export const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,63}$/
 
 /** Paths voidlink serves itself. */
-export const BUILTIN_RESERVED = ['_health'] as const
+export const BUILTIN_RESERVED = ['_health', '_voidlink'] as const
 
 export const UTM_KEYS = [
     'utm_source',
@@ -54,7 +54,7 @@ export function linkError(
     try {
         url = new URL(to)
     } catch {
-        return `${slug}: invalid destination URL "${to}"`
+        return `${slug}: invalid destination URL`
     }
     if (url.protocol !== 'https:') return `${slug}: destination must be https`
     if (hostMatches(url.hostname, [site.host, ...(site.aliases ?? [])])) {
