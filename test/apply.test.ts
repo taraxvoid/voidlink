@@ -136,12 +136,26 @@ describe('PUT /_voidlink/links', () => {
         }
     })
 
-    test('hostile link keys are refused', async () => {
+    test('a __proto__ key is refused', async () => {
         const raw =
-            '{"version":100,"sha":"abc","links":{"__proto__":"https://a.example","constructor":"https://b.example"}}'
+            '{"version":100,"sha":"abc","links":{"__proto__":"https://a.example"}}'
         const res = await put(null, { raw })
         expect(res.status).toBe(422)
         expect(await readLinks(env.DB, site.host)).toBeNull()
+    })
+
+    test('prototype names are ordinary slugs, served only as own keys', async () => {
+        const raw =
+            '{"version":100,"sha":"abc","links":{"constructor":"https://b.example/c"}}'
+        expect((await put(null, { raw })).status).toBe(200)
+        const get = (path: string) =>
+            handle({ site }, new Request(`https://short.example${path}`), env, {
+                waitUntil() {},
+            })
+        const hit = await get('/constructor')
+        expect(hit.headers.get('location')).toBe('https://b.example/c')
+        expect((await get('/tostring')).status).toBe(404)
+        expect((await get('/hasownproperty')).status).toBe(404)
     })
 
     test('invalid links are a 422 listing every problem', async () => {

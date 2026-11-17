@@ -144,8 +144,32 @@ describe('verifyGitHubToken', () => {
             alg: 'RS256',
             kid: 'rotated',
         })
-        await rejects(verify(other, jwks), 401)
+        await rejects(verify(other, jwks, NOW + 61), 401)
         expect(jwks.calls).toBe(2)
+    })
+
+    test('unknown kids refetch at most once a minute', async () => {
+        const jwks = jwksFetcher()
+        await verify(await sign(goodClaims(NOW)), jwks)
+        for (let i = 0; i < 5; i++) {
+            const bogus = await sign(goodClaims(NOW), {
+                alg: 'RS256',
+                kid: `random-${i}`,
+            })
+            await rejects(verify(bogus, jwks, NOW + 30), 401)
+        }
+        expect(jwks.calls).toBe(1)
+    })
+
+    test('concurrent first requests share one JWKS fetch', async () => {
+        const jwks = jwksFetcher()
+        const jwt = await sign(goodClaims(NOW))
+        await Promise.all([
+            verify(jwt, jwks),
+            verify(jwt, jwks),
+            verify(jwt, jwks),
+        ])
+        expect(jwks.calls).toBe(1)
     })
 
     test('the JWKS is cached for an hour', async () => {

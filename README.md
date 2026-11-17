@@ -224,6 +224,7 @@ on:
     pull_request:
     push:
         branches: [main]
+    workflow_dispatch: # apply again by hand
     schedule:
         - cron: "17 5 * * *"
 permissions:
@@ -231,14 +232,17 @@ permissions:
 jobs:
     plan:
         if: github.event_name == 'pull_request'
+        runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@<sha>
               with: { fetch-depth: 0, persist-credentials: false }
+            - uses: oven-sh/setup-bun@<sha>
             - run: git show "origin/${BASE_REF}:redirects.ts" > "$RUNNER_TEMP/base.ts" || echo 'export default {}' > "$RUNNER_TEMP/base.ts"
               env: { BASE_REF: "${{ github.base_ref }}" }
             - run: bunx @taraxvoid/voidlink@<version> plan --redirects redirects.ts --base "$RUNNER_TEMP/base.ts" --remote --summary
     apply:
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        runs-on: ubuntu-latest
         environment: links # deployment branch policy: main only
         permissions:
             contents: read
@@ -246,12 +250,15 @@ jobs:
         steps:
             - uses: actions/checkout@<sha>
               with: { persist-credentials: false }
+            - uses: oven-sh/setup-bun@<sha>
             - run: bunx @taraxvoid/voidlink@<version> apply --redirects redirects.ts
     check:
         if: github.event_name == 'schedule'
+        runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@<sha>
               with: { persist-credentials: false }
+            - uses: oven-sh/setup-bun@<sha>
             - run: bunx @taraxvoid/voidlink@<version> check --redirects redirects.ts --host txv.sh
 ```
 

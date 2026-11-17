@@ -7,6 +7,7 @@
 export const GITHUB_ISSUER = 'https://token.actions.githubusercontent.com'
 const JWKS_URL = `${GITHUB_ISSUER}/.well-known/jwks`
 const JWKS_TTL = 3600
+const JWKS_REFETCH = 60
 const LEEWAY = 60
 
 /** 401: not a valid GitHub token. 403: valid, but not one this site trusts. */
@@ -45,6 +46,7 @@ let cache: { keys: JsonWebKey[]; at: number } | null = null
 /** Forget the cached JWKS (tests). */
 export function clearJwksCache(): void {
     cache = null
+    inflight = null
 }
 
 function b64urlBytes(s: string): Uint8Array<ArrayBuffer> {
@@ -67,18 +69,31 @@ async function keyFor(
 ): Promise<JsonWebKey | undefined> {
     const find = () =>
         cache?.keys.find((k) => (k as { kid?: string }).kid === kid)
-    const load = async () => {
-        try {
-            cache = { keys: (await fetchJwks()).keys ?? [], at: now }
-        } catch (err) {
-            console.error('voidlink: could not load GitHub signing keys:', err)
-            throw new AuthError(401, 'signing keys unavailable')
-        }
+    // One fetch at a time per isolate; concurrent callers share it.
+    const load = () => {
+        inflight ??= (async () => {
+            try {
+                cache = { keys: (await fetchJwks()).keys ?? [], at: now }
+            } catch (err) {
+                console.error(
+                    'voidlink: could not load GitHub signing keys:',
+                    err,
+                )
+                throw new AuthError(401, 'signing keys unavailable')
+            } finally {
+                inflight = null
+            }
+        })()
+        return inflight
     }
     if (!cache || now - cache.at >= JWKS_TTL) await load()
-    else if (!find()) await load()
+    // An unknown kid refetches, but at most once a minute: kids come from
+    // unauthenticated input, so each one must not cost a request to GitHub.
+    else if (!find() && now - cache.at >= JWKS_REFETCH) await load()
     return find()
 }
+
+let inflight: Promise<void> | null = null
 
 /**
  * The token's claims when it is a GitHub Actions token for the expected repo,
