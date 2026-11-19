@@ -1,8 +1,11 @@
+import { handleApply, siteInfo } from './apply'
 import { isBotUserAgent } from './bot'
 import { countClick } from './clicks'
 import { destinationFor, slugFromPath, UTM_KEYS } from './links'
+import type { JwksFetcher } from './oidc'
 import { indexHtml, indexText, notFoundHtml, notFoundText } from './pages'
 import { capture } from './posthog'
+import { cachedLinks } from './store'
 import type { Env, LinkTable, Site } from './types'
 
 export type Ctx = Pick<ExecutionContext, 'waitUntil'>
@@ -20,9 +23,9 @@ export type Routes<E extends Env> = (
 
 export type WorkerOptions<E extends Env> = {
     site: Site
-    /** From `voidlink build`: the site's checked links. */
-    links: LinkTable
     routes?: Routes<E>
+    /** GitHub's signing keys, for tests. Default: fetched from GitHub. */
+    jwks?: JwksFetcher
 }
 
 const TEXT = { 'content-type': 'text/plain; charset=utf-8' }
@@ -39,16 +42,26 @@ export async function handle<E extends Env>(
     env: E,
     ctx: Ctx,
 ): Promise<Response> {
-    const { site, links } = opts
+    const { site } = opts
+    const url = new URL(req.url)
+    if (req.method === 'PUT' && url.pathname === '/_voidlink/links') {
+        return handleApply(req, site, env, { jwks: opts.jwks })
+    }
     if (req.method !== 'GET' && req.method !== 'HEAD') {
         return new Response('method not allowed\n', {
             status: 405,
             headers: { ...TEXT, allow: 'GET, HEAD' },
         })
     }
-    const url = new URL(req.url)
     const own = await opts.routes?.(req, url, env, ctx)
     if (own) return own
+    if (url.pathname === '/_voidlink/site') return Response.json(siteInfo(site))
+
+    // Never readable in this isolate (D1 down since it started): null.
+    const stored: LinkTable | null = env.DB
+        ? await cachedLinks(env.DB, site.host)
+        : {}
+    const links = stored ?? {}
 
     if (url.pathname === '/') {
         if (!isBrowser(req)) {
@@ -63,6 +76,12 @@ export async function handle<E extends Env>(
     if (url.pathname === '/_health') return health(env)
 
     const slug = slugFromPath(url.pathname)
+    if (slug && stored === null) {
+        return new Response('links unavailable\n', {
+            status: 503,
+            headers: { ...TEXT, 'retry-after': '30' },
+        })
+    }
     const link = slug && Object.hasOwn(links, slug) ? links[slug] : undefined
     if (!slug || !link) {
         return isBrowser(req)
@@ -140,9 +159,8 @@ async function health(env: Env): Promise<Response> {
 /**
  * The Worker's default export.
  *
- *   import links from './links.gen.json'
  *   import site from './voidlink.config'
- *   export default createWorker({ site, links })
+ *   export default createWorker({ site })
  */
 export function createWorker<E extends Env = Env>(
     opts: WorkerOptions<E>,

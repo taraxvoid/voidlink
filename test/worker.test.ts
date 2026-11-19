@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { buildLinks } from '../src/links'
+import { clearLinkCache, writeLinks } from '../src/store'
 import type { Env, Site } from '../src/types'
 import { createWorker, handle, type WorkerOptions } from '../src/worker'
 import { testD1 } from './d1'
@@ -31,8 +32,10 @@ let pending: Promise<unknown>[]
 let posted: Array<{ event: string; properties: Record<string, unknown> }>
 const realFetch = globalThis.fetch
 
-beforeEach(() => {
+beforeEach(async () => {
     env = { DB: testD1(), POSTHOG_KEY: 'phc_test' }
+    clearLinkCache()
+    await writeLinks(env.DB, site.host, { version: 1, sha: 'a', links })
     pending = []
     posted = []
     globalThis.fetch = (async (_url: string, init?: RequestInit) => {
@@ -51,7 +54,7 @@ async function get(
     opts: Partial<WorkerOptions<Env>> = {},
 ) {
     const res = await handle(
-        { site, links, ...opts },
+        { site, ...opts },
         new Request(`https://short.example${path}`, { method, headers }),
         env,
         { waitUntil: (p) => pending.push(p) },
@@ -122,8 +125,22 @@ describe('links', () => {
         env = { DB: env.DB }
         await get('/cv', browser)
         expect(posted).toHaveLength(0)
+    })
+    test('no DB binding: no links', async () => {
         env = {} as typeof env
-        expect((await get('/cv', browser)).status).toBe(302)
+        expect((await get('/cv', browser)).status).toBe(404)
+    })
+    test('slugs answer 503 when links were never readable', async () => {
+        env.DB.sqlite.close()
+        clearLinkCache()
+        const err = console.error
+        console.error = () => {}
+        const slug = await get('/cv', browser)
+        const index = await get('/', browser)
+        console.error = err
+        expect(slug.status).toBe(503)
+        expect(index.status).toBe(200)
+        expect(await index.text()).toContain('No public links yet.')
     })
     test('a missing link is a 404: HTML for browsers, failing sh otherwise', async () => {
         const page = await get('/nope', browser)
@@ -140,6 +157,25 @@ describe('links', () => {
         const res = await get('/cv', {}, 'POST')
         expect(res.status).toBe(405)
         expect(res.headers.get('allow')).toBe('GET, HEAD')
+        expect((await get('/cv', {}, 'PUT')).status).toBe(405)
+    })
+    test('PUT /_voidlink/links reaches apply', async () => {
+        const res = await get('/_voidlink/links', {}, 'PUT')
+        expect(res.status).toBe(404) // this site has no apply config
+        const withApply = {
+            ...site,
+            apply: { repositoryId: 1, workflow: 'w.yml', environment: 'e' },
+        }
+        const res2 = await get('/_voidlink/links', {}, 'PUT', {
+            site: withApply,
+        })
+        expect(res2.status).toBe(401)
+    })
+    test('GET /_voidlink/site', async () => {
+        expect(await (await get('/_voidlink/site')).json()).toEqual({
+            host: 'short.example',
+            reserved: ['_health', '_voidlink', 'hello'],
+        })
     })
 })
 
@@ -170,9 +206,8 @@ describe('index', () => {
         expect(res.headers.get('location')).toBe('https://home.example/')
     })
     test('with no public links it says so', async () => {
-        const html = await (
-            await get('/', browser, 'GET', { links: {} })
-        ).text()
+        env = { DB: testD1() }
+        const html = await (await get('/', browser)).text()
         expect(html).toContain('No public links yet.')
     })
 })
@@ -202,7 +237,6 @@ describe('routes and health', () => {
     test('createWorker turns a thrown route into a 500', async () => {
         const worker = createWorker({
             site,
-            links,
             routes: () => {
                 throw new Error('boom')
             },

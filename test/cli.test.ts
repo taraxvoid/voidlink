@@ -1,110 +1,174 @@
 import { describe, expect, test } from 'bun:test'
-import { mkdtempSync, readFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { check, parseArgs, run, UsageError } from '../src/cli'
 import { buildAll, diff, planMarkdown } from '../src/plan'
 
 const fx = (name: string) => join(import.meta.dir, 'fixtures', name)
-const tmp = () => mkdtempSync(join(tmpdir(), 'voidlink-'))
 
-function cli(argv: string[], fetcher: typeof fetch = fetch) {
-    const lines: string[] = []
-    const code = run(argv, { log: (s) => lines.push(s), fetch: fetcher })
-    return code.then((c) => ({ code: c, out: lines.join('\n') }))
+const ACTIONS = {
+    ACTIONS_ID_TOKEN_REQUEST_URL: 'https://oidc.example/token?api-version=2.0',
+    ACTIONS_ID_TOKEN_REQUEST_TOKEN: 'runtime-secret',
 }
+
+const git = (args: string[]) => {
+    if (args.join(' ') === 'log -1 --format=%ct') return '1763400000'
+    if (args.join(' ') === 'rev-parse HEAD') return 'abc123'
+    throw new Error(`unexpected git ${args.join(' ')}`)
+}
+
+function cli(
+    argv: string[],
+    fetcher: typeof fetch = fetch,
+    env: Record<string, string | undefined> = ACTIONS,
+) {
+    const lines: string[] = []
+    return run(argv, {
+        log: (s) => lines.push(s),
+        fetch: fetcher,
+        env,
+        git,
+    }).then((code) => ({ code, out: lines.join('\n') }))
+}
+
+type Call = { url: string; init?: RequestInit }
+
+/** A fake network: the Actions token endpoint, then each site's PUT. */
+function network(status: Record<string, number> = {}) {
+    const calls: Call[] = []
+    const fetcher = (async (url: string, init?: RequestInit) => {
+        calls.push({ url, init })
+        if (url.startsWith('https://oidc.example/')) {
+            const aud = new URL(url).searchParams.get('audience')
+            return Response.json({ value: `jwt-for-${aud}` })
+        }
+        const code = status[new URL(url).host] ?? 200
+        if (code !== 200) {
+            return new Response('token aud does not match\n', { status: code })
+        }
+        const body = JSON.parse(String(init?.body))
+        return Response.json({
+            version: body.version,
+            sha: body.sha,
+            count: Object.keys(body.links).length,
+        })
+    }) as typeof fetch
+    return { calls, fetcher }
+}
+
+const headers = (c?: Call) => (c?.init?.headers ?? {}) as Record<string, string>
 
 describe('parseArgs', () => {
     test('flags with and without values', () => {
-        expect(parseArgs(['build', '--out', 'x', '--empty'])).toEqual({
-            command: 'build',
-            flags: { out: 'x', empty: true },
+        expect(parseArgs(['plan', '--base', 'x', '--summary'])).toEqual({
+            command: 'plan',
+            flags: { base: 'x', summary: true },
         })
     })
     test('rejects stray positionals', () => {
-        expect(() => parseArgs(['build', 'x'])).toThrow(UsageError)
+        expect(() => parseArgs(['plan', 'x'])).toThrow(UsageError)
     })
 })
 
-describe('build', () => {
-    test("writes the site's checked links, and logs counts only", async () => {
-        const out = join(tmp(), 'gen', 'links.json')
-        const res = await cli([
-            'build',
-            '--redirects',
-            fx('redirects.ts'),
-            '--site',
-            fx('site-ok.ts'),
-            '--out',
-            out,
-        ])
+describe('apply', () => {
+    test("sends each host's links with its own audience", async () => {
+        const { calls, fetcher } = network()
+        const res = await cli(
+            ['apply', '--redirects', fx('redirects.ts')],
+            fetcher,
+        )
         expect(res.code).toBe(0)
-        expect(JSON.parse(readFileSync(out, 'utf8'))).toEqual({
-            cv: { to: 'https://home.example/cv', public: true, title: 'CV' },
-            gh: { to: 'https://github.com/example', public: false },
+        const tokens = calls.filter((c) =>
+            c.url.startsWith('https://oidc.example/'),
+        )
+        expect(
+            tokens.map((c) => new URL(c.url).searchParams.get('audience')),
+        ).toEqual(['voidlink:other.example', 'voidlink:short.example'])
+        for (const t of tokens) {
+            expect(new URL(t.url).searchParams.get('api-version')).toBe('2.0')
+            expect(headers(t).authorization).toBe('bearer runtime-secret')
+        }
+        const puts = calls.filter((c) => c.init?.method === 'PUT')
+        expect(puts.map((c) => c.url)).toEqual([
+            'https://other.example/_voidlink/links',
+            'https://short.example/_voidlink/links',
+        ])
+        expect(headers(puts[1]).authorization).toBe(
+            'Bearer jwt-for-voidlink:short.example',
+        )
+        expect(headers(puts[1])['content-type']).toBe('application/json')
+        expect(JSON.parse(String(puts[1]?.init?.body))).toEqual({
+            version: 1763400000,
+            sha: 'abc123',
+            links: {
+                cv: {
+                    to: 'https://home.example/cv',
+                    public: true,
+                    title: 'CV',
+                },
+                gh: { to: 'https://github.com/example', public: false },
+            },
         })
-        expect(res.out).toContain('2 links (1 public)')
+        expect(res.out).toContain('short.example: version 1763400000, 2 links')
+        expect(res.out).not.toContain('https://home.example')
         expect(res.out).not.toContain('github.com')
     })
-    test('fails on a slug the site reserves', async () => {
-        const out = join(tmp(), 'links.json')
-        await expect(
-            cli([
-                'build',
+
+    test('--host sends only that host; --origin replaces https://<host>', async () => {
+        const { calls, fetcher } = network()
+        await cli(
+            [
+                'apply',
                 '--redirects',
                 fx('redirects.ts'),
-                '--site',
-                fx('site.ts'),
-                '--out',
-                out,
-            ]),
-        ).rejects.toThrow('"gh" is reserved')
-    })
-    test('fails when the redirects file has no entry for the site', async () => {
-        const site = join(tmp(), 'site.ts')
-        await Bun.write(
-            site,
-            "export default { host: 'nobody.example', homeUrl: 'https://h.example/' }",
+                '--host',
+                'short.example',
+                '--origin',
+                'http://localhost:8787',
+            ],
+            fetcher,
         )
-        await expect(
-            cli([
-                'build',
-                '--redirects',
-                fx('redirects.ts'),
-                '--site',
-                site,
-                '--out',
-                join(tmp(), 'x.json'),
-            ]),
-        ).rejects.toThrow('no "nobody.example" entry')
-    })
-    test("refuses a site entry with no links, so a deploy can't wipe them", async () => {
-        const redirects = join(tmp(), 'r.ts')
-        await Bun.write(redirects, "export default { 'short.example': {} }")
-        await expect(
-            cli([
-                'build',
-                '--redirects',
-                redirects,
-                '--site',
-                fx('site-ok.ts'),
-                '--out',
-                join(tmp(), 'x.json'),
-            ]),
-        ).rejects.toThrow('no links for "short.example"')
-    })
-    test('--empty writes no links, for local dev without infra', async () => {
-        const out = join(tmp(), 'links.json')
-        const res = await cli([
-            'build',
-            '--empty',
-            '--site',
-            fx('site-ok.ts'),
-            '--out',
-            out,
+        const puts = calls.filter((c) => c.init?.method === 'PUT')
+        expect(puts.map((c) => c.url)).toEqual([
+            'http://localhost:8787/_voidlink/links',
         ])
-        expect(res.code).toBe(0)
-        expect(readFileSync(out, 'utf8')).toBe('{}\n')
+    })
+
+    test('reports every host, exits 1 if any failed', async () => {
+        const { calls, fetcher } = network({ 'other.example': 403 })
+        const res = await cli(
+            ['apply', '--redirects', fx('redirects.ts')],
+            fetcher,
+        )
+        expect(res.code).toBe(1)
+        expect(calls.filter((c) => c.init?.method === 'PUT')).toHaveLength(2)
+        expect(res.out).toContain(
+            'other.example: HTTP 403 token aud does not match',
+        )
+        expect(res.out).toContain('short.example: version 1763400000, 2 links')
+    })
+
+    test('apply outside Actions', async () => {
+        const { calls, fetcher } = network()
+        await expect(
+            cli(['apply', '--redirects', fx('redirects.ts')], fetcher, {}),
+        ).rejects.toThrow(/id-token: write/)
+        expect(calls).toHaveLength(0)
+    })
+
+    test('an unknown --host is an error', async () => {
+        const { fetcher } = network()
+        await expect(
+            cli(
+                [
+                    'apply',
+                    '--redirects',
+                    fx('redirects.ts'),
+                    '--host',
+                    'nope.example',
+                ],
+                fetcher,
+            ),
+        ).rejects.toThrow('no "nope.example" entry')
     })
 })
 
@@ -146,6 +210,51 @@ describe('plan', () => {
             'a.example': { x: { to: 'https://x.example', title: 'a | b' } },
         })
         expect(planMarkdown(diff({}, head))).toContain('"a \\| b"')
+    })
+})
+
+describe('plan --remote', () => {
+    test('fails on a slug the live site reserves', async () => {
+        const fetcher = (async (url: string) =>
+            Response.json({
+                host: new URL(url).host,
+                reserved: ['_health', '_voidlink', 'gh'],
+            })) as typeof fetch
+        await expect(
+            cli(
+                ['plan', '--redirects', fx('redirects.ts'), '--remote'],
+                fetcher,
+            ),
+        ).rejects.toThrow('short.example: "gh" is reserved by the site')
+    })
+    test('passes when nothing is reserved, and asks each host', async () => {
+        const asked: string[] = []
+        const fetcher = (async (url: string) => {
+            asked.push(url)
+            return Response.json({
+                host: new URL(url).host,
+                reserved: ['_health'],
+            })
+        }) as typeof fetch
+        const res = await cli(
+            ['plan', '--redirects', fx('redirects.ts'), '--remote'],
+            fetcher,
+        )
+        expect(res.code).toBe(0)
+        expect(asked.sort()).toEqual([
+            'https://other.example/_voidlink/site',
+            'https://short.example/_voidlink/site',
+        ])
+    })
+    test('a site that does not answer fails the plan', async () => {
+        const fetcher = (async (_url: string) =>
+            new Response('nope', { status: 404 })) as typeof fetch
+        await expect(
+            cli(
+                ['plan', '--redirects', fx('redirects.ts'), '--remote'],
+                fetcher,
+            ),
+        ).rejects.toThrow(/_voidlink\/site: HTTP 404/)
     })
 })
 
@@ -198,4 +307,8 @@ describe('check', () => {
 
 test('unknown command is a usage error', async () => {
     await expect(cli(['nope'])).rejects.toThrow(UsageError)
+})
+
+test('build is gone', async () => {
+    await expect(cli(['build'])).rejects.toThrow('unknown command build')
 })

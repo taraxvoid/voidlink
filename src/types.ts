@@ -32,10 +32,13 @@ export type Redirects = Record<string, Record<string, LinkInput>>
 /** A link once checked and normalized, as the Worker bundles it. */
 export type Link = { to: string; public: boolean; title?: string }
 
-/** Every link of one site, by slug. What `voidlink build` writes. */
+/** Every link of one site, by slug. What `voidlink apply` sends. */
 export type LinkTable = Record<string, Link>
 
-/** A deployment's own settings (`voidlink.config.ts` in the site's repo). */
+/**
+ * A deployment's own settings (`voidlink.config.ts` in the site's repo).
+ * Plain data: `export default { ... } satisfies Site`.
+ */
 export type Site = {
     /** The host short links live on, e.g. 'txv.sh'. Its key in redirects files. */
     host: string
@@ -61,11 +64,24 @@ export type Site = {
     reserved?: string[]
     /** PostHog event for a click. Sent only when POSTHOG_KEY is set. */
     analytics?: { event: string }
+    /**
+     * Who may send this site its links (`voidlink apply`): a GitHub Actions
+     * workflow in the links repo, on main, in this environment. Unset: the
+     * site takes no links.
+     */
+    apply?: {
+        /** The links repo's numeric id: `gh api repos/<owner>/<name> --jq .id` */
+        repositoryId: number
+        /** The workflow file, e.g. '.github/workflows/redirects.yml'. */
+        workflow: string
+        /** The GitHub environment the apply job runs in. */
+        environment: string
+    }
 }
 
 /** Worker bindings voidlink reads. */
 export interface Env {
-    /** Click counts. Optional: without it links still redirect. */
+    /** Links and click counts. Without it the site serves no links. */
     DB?: D1Database
     /** PostHog project key, a Worker secret. Unset: no analytics. */
     POSTHOG_KEY?: string
