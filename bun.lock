@@ -8,7 +8,7 @@
         "@biomejs/biome": "2.6.4",
         "@cloudflare/workers-types": "^5.20261006.1",
         "@socketsecurity/bun-security-scanner": "^1.1.3",
-        "@taraxvoid/voidflow": "^1.6.0",
+        "@taraxvoid/voidflow": "^1.6.2",
         "@types/bun": "1.4.4",
         "typescript": "7.0.2",
       },
@@ -87,7 +87,7 @@
 
     "@socketsecurity/bun-security-scanner": ["@socketsecurity/bun-security-scanner@1.1.3", "", {}, "sha512-etUBYn5rx/ubI2JaAplX/Dr48X4uufcXVxvcVp68DZFne+ROlUQTcEw7pJFgq6UY4PWbChvhWnoNQBnFWwXyEA=="],
 
-    "@taraxvoid/voidflow": ["@taraxvoid/voidflow@1.6.0", "", { "dependencies": { "jsonc-parser": "3.3.1", "license-checker-rseidelsohn": "5.0.1", "smol-toml": "1.9.1" }, "peerDependencies": { "@playwright/test": ">=1.40" }, "optionalPeers": ["@playwright/test"], "bin": { "voidflow": "dist/scripts/cli.js", "deps-signals": "scripts/deps-signals.ts", "check-licenses": "scripts/check-licenses.ts", "unlighthouse-runner": "scripts/unlighthouse/run.ts" } }, "sha512-Tb84n7V2vv36+RqPEaD71B7KU0gt2G7Mw0g/KPiO2lcU+MJW7k4Ad9uGJGrPT0Umq66B33TWj/qLdHw8XUT+EQ=="],
+    "@taraxvoid/voidflow": ["@taraxvoid/voidflow@1.6.2", "", { "dependencies": { "jsonc-parser": "3.3.1", "license-checker-rseidelsohn": "5.0.1", "smol-toml": "1.9.1" }, "peerDependencies": { "@playwright/test": ">=1.40" }, "optionalPeers": ["@playwright/test"], "bin": { "voidflow": "dist/scripts/cli.js", "deps-signals": "scripts/deps-signals.ts", "check-licenses": "scripts/check-licenses.ts", "unlighthouse-runner": "scripts/unlighthouse/run.ts" } }, "sha512-Jsa9MfV2ygPhHu9NZF17MbVPhbZQQ4k5HvITtWbjysK/+VHrh0KmD6nbP6qwA+qEYS0Oj6z33qhT/WH+t2NxEQ=="],
 
     "@tufjs/canonical-json": ["@tufjs/canonical-json@2.0.0", "", {}, "sha512-yVtV8zsdo8qFHe+/3kw81dSLyF7D576A5cCFCi4X7B39tWT7SekaEFUnvnWJHz+9qO7qJTah1JbrDjWKqFtdWA=="],
 
