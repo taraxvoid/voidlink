@@ -47,7 +47,7 @@
         "test:push": "bun run lint && bun run check && bun test"
     },
     "devDependencies": {
-        "@biomejs/biome": "2.6.4",
+        "@biomejs/biome": "2.6.8",
         "@cloudflare/workers-types": "^5.20261006.1",
         "@socketsecurity/bun-security-scanner": "^1.1.3",
         "@taraxvoid/voidflow": "^1.6.2",
