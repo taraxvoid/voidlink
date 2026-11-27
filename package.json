@@ -1,6 +1,6 @@
 {
     "name": "@taraxvoid/voidlink",
-    "version": "0.0.0",
+    "version": "1.0.0",
     "description": "Short links on Cloudflare Workers, with links kept as reviewed config and applied by CI.",
     "type": "module",
     "license": "MIT",
